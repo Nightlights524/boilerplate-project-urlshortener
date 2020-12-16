@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use('/public', express.static(`${process.cwd()}/public`));
-app.use('/api/shorturl', bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({extended: false}));
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
@@ -17,7 +17,11 @@ app.get('/', function(req, res) {
 
 // Your first API endpoint
 app.post('/api/shorturl/new', function(req, res) {
-  res.json({ greeting: 'hello API' });
+  console.log(req.body);
+  res.json({
+    original_url: req.body.url,
+    short_url: "24"
+  });
 });
 
 app.listen(port, function() {
