@@ -5,7 +5,11 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const nanoid = require('nanoid').nanoid;
+// const urlLib = require ('url');
 const app = express();
+
+// const urlVariable = Date.now();
+// console.log(`url=https://timestamp-microservice.freecodecamp.rocks/api/timestamp/${urlVariable}`);
 
 mongoose.set('debug', true);
 mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -34,16 +38,17 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-
-const DNS_LOOKUP_REGEX = /^https?:\/\//i
-
+// const DNS_LOOKUP_REGEX = /^https?:\/\//i
 
 // Your first API endpoint
 app.post('/api/shorturl/new', (req, res) => {
   
-  const lookupUrl = req.body.url.replace(DNS_LOOKUP_REGEX, '');
+  // const lookupUrl = req.body.url.replace(DNS_LOOKUP_REGEX, '');
+  // const lookupUrl = new URL(req.body.url);
 
-  dns.lookup(lookupUrl, (err, address, family) => {
+  const urlObject = new URL(req.body.url);
+
+  dns.lookup(urlObject.hostname, (err, address, family) => {
     if (err) {
       res.json({ error: 'invalid url' });
     }
@@ -58,7 +63,7 @@ app.post('/api/shorturl/new', (req, res) => {
       url.save((err, url) => {
         if (err) return console.error(err);
         console.log("URL ADDED TO MONGO");
-        
+
         res.json({
           original_url: req.body.url,
           short_url: shortUrl
