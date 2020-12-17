@@ -5,23 +5,17 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const nanoid = require('nanoid').nanoid;
-// const urlLib = require ('url');
 const app = express();
 
-// const urlVariable = Date.now();
-// console.log(`url=https://timestamp-microservice.freecodecamp.rocks/api/timestamp/${urlVariable}`);
-
+// Set up database and schema
 mongoose.set('debug', true);
 mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', () => {console.log('Successfully connected');});
-// db.once('open', () => {console.log(mongoose.connection.readyState);});
-
-// console.log(d;
 
 const urlSchema = new mongoose.Schema({
-  original_url: {type: String, required: true},
+  original_url: {type: String, required: true, unique: true},
   short_url: {type: String, required: true, unique: true}
 });
 
@@ -38,19 +32,19 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// const DNS_LOOKUP_REGEX = /^https?:\/\//i
+const DNS_LOOKUP_REGEX = /^https?:\/\//i;
 
-// Your first API endpoint
 app.post('/api/shorturl/new', (req, res) => {
-  
-  // const lookupUrl = req.body.url.replace(DNS_LOOKUP_REGEX, '');
-  // const lookupUrl = new URL(req.body.url);
+  // First check if request URL starts with http:// or https://
+  if (!DNS_LOOKUP_REGEX.test(req.body.url)) {
+    return res.json({ error: 'invalid url' });
+  }
 
   const urlObject = new URL(req.body.url);
 
   dns.lookup(urlObject.hostname, (err, address, family) => {
-    if (err) {
-      res.json({ error: 'invalid url' });
+    if (err) { 
+      return res.json({ error: 'invalid url' });
     }
     else {
       const shortUrl = nanoid(5);
@@ -65,7 +59,7 @@ app.post('/api/shorturl/new', (req, res) => {
         console.log("URL ADDED TO MONGO");
 
         res.json({
-          original_url: req.body.url,
+          original_url: url.original_url,
           short_url: shortUrl
         });
       });
