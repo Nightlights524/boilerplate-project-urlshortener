@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const nanoid = require('nanoid').nanoid;
+const util = require('util');
 const app = express();
 
 // Set up database and schema
@@ -33,62 +34,70 @@ app.get('/', function(req, res) {
 });
 
 const DNS_LOOKUP_REGEX = /^https?:\/\//i;
+const dnsLookup = util.promisify(dns.lookup);
 
 app.post('/api/shorturl/new', (req, res) => {
   // First check if request URL starts with http:// or https://
   if (!DNS_LOOKUP_REGEX.test(req.body.url)) {
     return res.json({ error: 'invalid url' });
   }
-
-  const urlObject = new URL(req.body.url);
-
-  dns.lookup(urlObject.hostname, (err) => {
-    if (err) { 
-      return res.json({ error: 'invalid url' });
-    }
-    else {
-      const shortUrl = nanoid(5);
-      
+  
+  const shortUrl = nanoid(5);
+  let existingDoc;
+  
+  Url.findOne({$or: [{original_url: req.body.url}, {short_url: shortUrl}]}).exec()
+    .then(urlDoc => {
+      if (urlDoc) {
+        if (urlDoc.original_url === req.body.url) {
+          existingDoc = urlDoc;
+          throw new Error("Duplicate original_url")
+        }
+        throw new Error("Duplicate short_url")
+      }
+      const urlObject = new URL(req.body.url);
+      return dnsLookup(urlObject.hostname);
+    })
+    .then(() => {
       const url = new Url({
         original_url: req.body.url,
         short_url: shortUrl
       });
-
-      url.save((err, url) => {
-        if (err) return console.error(err);
-        console.log("URL ADDED TO MONGO");
-
-        res.json({
-          original_url: url.original_url,
-          short_url: shortUrl
-        });
+      return url.save();
+    })
+    .then(urlDoc => {
+      res.json({
+        original_url: urlDoc.original_url,
+        short_url: urlDoc.short_url
       });
-    }
-  });
+    })
+    .catch(error => {
+      console.error(error);
+      switch (error.message) {
+        case "Duplicate original_url":
+          res.json({
+            original_url: existingDoc.original_url,
+            short_url: existingDoc.short_url
+          });
+          break;
+        case "Duplicate short_url":
+          res.json({ error: "duplicate short_url" })
+          break;
+        default:
+          res.json({ error: "invalid url" })
+          break;
+      }
+    });
 });
 
 app.get('/api/shorturl/:requestUrl', (req, res) => {
-  Url.findOne({short_url: req.params.requestUrl}, (err, url) => {
-    if (err) return console.error(err);
-
-    if (url) {
-      res.redirect(url.original_url);
-    }
-    else {
+  Url.findOne({short_url: req.params.requestUrl}).orFail().exec()
+    .then(urlDoc => res.redirect(urlDoc.original_url))
+    .catch(error => {
+      console.error(error);
       res.json({"error": "No short URL found for the given input"});
-    }
-  });
+    });
 });
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
-
-//-----------------
-// window.addEventListener("unhandledrejection", event => {
-//   /* You might start here by adding code to examine the
-//      promise specified by event.promise and the reason in
-//      event.reason */
-
-//   event.preventDefault();
-// }, false);
