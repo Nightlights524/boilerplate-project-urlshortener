@@ -83,3 +83,12 @@ app.get('/api/shorturl/:requestUrl', (req, res) => {
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
+
+//-----------------
+// window.addEventListener("unhandledrejection", event => {
+//   /* You might start here by adding code to examine the
+//      promise specified by event.promise and the reason in
+//      event.reason */
+
+//   event.preventDefault();
+// }, false);
