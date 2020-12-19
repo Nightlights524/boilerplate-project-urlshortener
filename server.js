@@ -82,12 +82,17 @@ app.post('/api/shorturl/new', (req, res) => {
 });
 
 app.get('/api/shorturl/:requestUrl', (req, res) => {
-  Url.findOne({short_url: req.params.requestUrl}).orFail().exec()
-    .then(urlDoc => res.redirect(urlDoc.original_url))
-    .catch(error => {
+  async function requestUrl() {
+    try {
+      const urlDoc = await Url.findOne({short_url: req.params.requestUrl}).orFail().exec();
+      return res.redirect(urlDoc.original_url);
+    }
+    catch(error) {
       console.error(error);
-      res.json({"error": "No short URL found for the given input"});
-    });
+      return res.json({"error": "No short URL found for the given input"});
+    }
+  }
+  requestUrl();
 });
 
 app.listen(port, function() {
