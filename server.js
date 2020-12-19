@@ -42,51 +42,43 @@ app.post('/api/shorturl/new', (req, res) => {
     return res.json({ error: 'invalid url' });
   }
   
-  const shortUrl = nanoid(5);
-  let existingDoc;
-  
-  Url.findOne({$or: [{original_url: req.body.url}, {short_url: shortUrl}]}).exec()
-    .then(urlDoc => {
+  async function addurl() {
+    try {
+      const shortUrl = nanoid(5);
+      
+      const urlDoc = await Url.findOne({$or: [{original_url: req.body.url}, {short_url: shortUrl}]}).exec();
+      
       if (urlDoc) {
         if (urlDoc.original_url === req.body.url) {
-          existingDoc = urlDoc;
-          throw new Error("Duplicate original_url")
+          return res.json({
+            original_url: urlDoc.original_url,
+            short_url: urlDoc.short_url
+          });
         }
-        throw new Error("Duplicate short_url")
+        return res.json({ error: "duplicate short_url" })
       }
+
       const urlObject = new URL(req.body.url);
-      return dnsLookup(urlObject.hostname);
-    })
-    .then(() => {
+      await dnsLookup(urlObject.hostname);
+
       const url = new Url({
         original_url: req.body.url,
         short_url: shortUrl
       });
-      return url.save();
-    })
-    .then(urlDoc => {
-      res.json({
-        original_url: urlDoc.original_url,
-        short_url: urlDoc.short_url
+
+      const savedDoc = await url.save();
+      return res.json({
+        original_url: savedDoc.original_url,
+        short_url: savedDoc.short_url
       });
-    })
-    .catch(error => {
+    } 
+    catch(error) {
       console.error(error);
-      switch (error.message) {
-        case "Duplicate original_url":
-          res.json({
-            original_url: existingDoc.original_url,
-            short_url: existingDoc.short_url
-          });
-          break;
-        case "Duplicate short_url":
-          res.json({ error: "duplicate short_url" })
-          break;
-        default:
-          res.json({ error: "invalid url" })
-          break;
-      }
-    });
+      return res.json({"error": error.message});
+    }
+  }
+
+  addurl();
 });
 
 app.get('/api/shorturl/:requestUrl', (req, res) => {
